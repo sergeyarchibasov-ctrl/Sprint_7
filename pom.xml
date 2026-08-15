@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
@@ -18,6 +17,7 @@
         <junit.version>5.10.2</junit.version>
         <rest-assured.version>5.5.0</rest-assured.version>
         <allure.version>2.29.0</allure.version>
+        <surefire.version>3.2.5</surefire.version>
     </properties>
 
     <dependencies>
@@ -38,7 +38,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Allure + JUnit 5 -->
+        <!-- Allure для JUnit 5 -->
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-junit5</artifactId>
@@ -51,11 +51,11 @@
     <build>
         <plugins>
 
-            <!-- Запуск JUnit 5 тестов -->
+            <!-- Запуск тестов JUnit 5 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
+                <version>${surefire.version}</version>
             </plugin>
 
         </plugins>
