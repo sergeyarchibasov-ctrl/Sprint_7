@@ -1,167 +1,146 @@
+import api.CourierApi;
+import io.qameta.allure.Description;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
+import model.Courier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class CourierLoginTest {
 
-    private static final String BASE_URL = "https://qa-scooter.praktikum-services.ru";
+    private final CourierApi courierApi = new CourierApi();
 
-    private String login;
-    private String password;
+    private Courier testCourier;
     private Integer courierId;
 
     @Test
+    @Description("Проверка успешной авторизации курьера")
     public void courierCanLogin() {
         createTestCourier();
 
-        Response response = loginCourier(login, password);
+        Response response = courierApi.loginCourier(testCourier);
 
-        assertEquals(200, response.statusCode());
-        assertNotNull(response.jsonPath().get("id"));
-
-        courierId = response.jsonPath().getInt("id");
+        checkSuccessfulLogin(response);
     }
 
     @Test
+    @Description("Проверка ошибки при неправильном логине")
     public void cannotLoginWithIncorrectLogin() {
         createTestCourier();
 
-        Response response = loginCourier(
+        Courier courierWithIncorrectLogin = new Courier(
                 "incorrect" + UUID.randomUUID(),
-                password
+                testCourier.getPassword()
         );
+
+        Response response =
+                courierApi.loginCourier(courierWithIncorrectLogin);
 
         assertEquals(404, response.statusCode());
     }
 
     @Test
+    @Description("Проверка ошибки при неправильном пароле")
     public void cannotLoginWithIncorrectPassword() {
         createTestCourier();
 
-        Response response = loginCourier(
-                login,
+        Courier courierWithIncorrectPassword = new Courier(
+                testCourier.getLogin(),
                 "incorrect" + UUID.randomUUID()
         );
+
+        Response response =
+                courierApi.loginCourier(courierWithIncorrectPassword);
 
         assertEquals(404, response.statusCode());
     }
 
     @Test
+    @Description("Проверка ошибки при отсутствии логина")
     public void cannotLoginWithoutLogin() {
         createTestCourier();
 
-        Response response = loginWithoutLogin();
+        Courier courierWithoutLogin = new Courier(
+                null,
+                testCourier.getPassword()
+        );
+
+        Response response =
+                courierApi.loginCourier(courierWithoutLogin);
 
         assertEquals(400, response.statusCode());
     }
 
     @Test
+    @Description("Проверка ошибки при отсутствии пароля")
     public void cannotLoginWithoutPassword() {
         createTestCourier();
 
-        Response response = loginWithoutPassword();
+        Courier courierWithoutPassword = new Courier(
+                testCourier.getLogin(),
+                null
+        );
+
+        Response response =
+                courierApi.loginCourier(courierWithoutPassword);
 
         assertEquals(504, response.statusCode());
     }
 
     @Test
+    @Description("Проверка ошибки при авторизации несуществующего курьера")
     public void cannotLoginNonexistentCourier() {
-        String nonexistentLogin = "nonexistent" + UUID.randomUUID();
-        String nonexistentPassword = "password" + UUID.randomUUID();
-
-        Response response = loginCourier(
-                nonexistentLogin,
-                nonexistentPassword
+        Courier nonexistentCourier = new Courier(
+                "nonexistent" + UUID.randomUUID(),
+                "password" + UUID.randomUUID()
         );
+
+        Response response =
+                courierApi.loginCourier(nonexistentCourier);
 
         assertEquals(404, response.statusCode());
     }
 
     @Step("Создать тестового курьера")
     private void createTestCourier() {
-        login = "courier" + UUID.randomUUID();
-        password = "password" + UUID.randomUUID();
+        testCourier = new Courier(
+                "courier" + UUID.randomUUID(),
+                "password" + UUID.randomUUID()
+        );
 
-        Response response = given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\","
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier");
+        Response createResponse =
+                courierApi.createCourier(testCourier);
 
-        assertEquals(201, response.statusCode());
+        assertEquals(201, createResponse.statusCode());
+
+        // Ручка создания возвращает только ok:true,
+        // поэтому id получаем отдельным запросом авторизации
+        Response loginResponse =
+                courierApi.loginCourier(testCourier);
+
+        assertEquals(200, loginResponse.statusCode());
+
+        courierId = loginResponse.jsonPath().getInt("id");
+
+        assertNotNull(courierId);
     }
 
-    @Step("Авторизоваться под курьером")
-    private Response loginCourier(String login, String password) {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\","
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier/login");
-    }
-
-    @Step("Авторизоваться без логина")
-    private Response loginWithoutLogin() {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier/login");
-    }
-
-    @Step("Авторизоваться без пароля")
-    private Response loginWithoutPassword() {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier/login");
+    @Step("Проверить успешную авторизацию")
+    private void checkSuccessfulLogin(Response response) {
+        assertEquals(200, response.statusCode());
+        assertNotNull(response.jsonPath().get("id"));
     }
 
     @AfterEach
     @Step("Удалить тестового курьера")
     public void deleteCourier() {
-        if (login != null && password != null) {
-            Integer id = getCourierIdForDeletion();
-
-            if (id != null) {
-                given()
-                        .baseUri(BASE_URL)
-                        .when()
-                        .delete("/api/v1/courier/" + id);
-            }
+        if (courierId != null) {
+            courierApi.deleteCourier(courierId);
         }
-    }
-
-    @Step("Получить id курьера для удаления")
-    private Integer getCourierIdForDeletion() {
-        Response response = loginCourier(login, password);
-
-        if (response.statusCode() == 200) {
-            return response.jsonPath().getInt("id");
-        }
-
-        return null;
     }
 }

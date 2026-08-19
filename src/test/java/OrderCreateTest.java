@@ -1,60 +1,73 @@
+import api.OrderApi;
+import io.qameta.allure.Description;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
+import model.Order;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
-import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class OrderCreateTest {
 
-    private static final String BASE_URL =
-            "https://qa-scooter.praktikum-services.ru";
+    private final OrderApi orderApi = new OrderApi();
 
     @ParameterizedTest(name = "Создание заказа: {0}")
     @MethodSource("orderColors")
+    @Description("Проверка создания заказа с разными вариантами цвета")
     public void orderCanBeCreatedWithDifferentColors(
             String testName,
-            String colorJson) {
+            List<String> colors) {
 
-        Response response = createOrder(colorJson);
+        Order order = createOrder(colors);
+
+        Response response = orderApi.createOrder(order);
 
         checkSuccessfulOrderCreation(response);
     }
 
     static Stream<Arguments> orderColors() {
         return Stream.of(
-                Arguments.of("BLACK", "[\"BLACK\"]"),
-                Arguments.of("GREY", "[\"GREY\"]"),
-                Arguments.of("BLACK и GREY", "[\"BLACK\",\"GREY\"]"),
-                Arguments.of("без цвета", "[]")
+                Arguments.of(
+                        "BLACK",
+                        Collections.singletonList("BLACK")
+                ),
+                Arguments.of(
+                        "GREY",
+                        Collections.singletonList("GREY")
+                ),
+                Arguments.of(
+                        "BLACK и GREY",
+                        Arrays.asList("BLACK", "GREY")
+                ),
+                Arguments.of(
+                        "без цвета",
+                        null
+                )
         );
     }
 
-    @Step("Создать заказ с выбранными цветами")
-    private Response createOrder(String colorJson) {
-        String body = "{"
-                + "\"firstName\":\"Иван\","
-                + "\"lastName\":\"Иванов\","
-                + "\"address\":\"Москва, улица Ленина, 1\","
-                + "\"metroStation\":4,"
-                + "\"phone\":\"+79991234567\","
-                + "\"rentTime\":5,"
-                + "\"deliveryDate\":\"2026-12-31\","
-                + "\"comment\":\"Тестовый заказ\","
-                + "\"color\":" + colorJson
-                + "}";
-
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .when()
-                .post("/api/v1/orders");
+    @Step("Подготовить данные заказа")
+    private Order createOrder(List<String> colors) {
+        return new Order(
+                "Иван",
+                "Иванов",
+                "Москва, улица Ленина, 1",
+                4,
+                "+7999" + (1000000 + Math.abs(UUID.randomUUID().hashCode() % 8999999)),
+                5,
+                "2026-12-31",
+                "Тестовый заказ",
+                colors
+        );
     }
 
     @Step("Проверить успешное создание заказа")

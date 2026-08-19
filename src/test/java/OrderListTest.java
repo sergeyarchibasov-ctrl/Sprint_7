@@ -1,31 +1,27 @@
+import api.OrderApi;
+import io.qameta.allure.Description;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.Test;
 
-import static io.restassured.RestAssured.given;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OrderListTest {
 
-    private static final String BASE_URL =
-            "https://qa-scooter.praktikum-services.ru";
+    private final OrderApi orderApi = new OrderApi();
 
     @Test
+    @Description("Проверка получения списка заказов")
     public void ordersListIsReturned() {
-        Response response = getOrders();
+
+        Response response = orderApi.getOrders();
 
         checkSuccessfulResponse(response);
         checkOrdersList(response);
-    }
-
-    @Step("Получить список заказов")
-    private Response getOrders() {
-        return given()
-                .baseUri(BASE_URL)
-                .when()
-                .get("/api/v1/orders");
     }
 
     @Step("Проверить успешный ответ")
@@ -35,9 +31,9 @@ public class OrderListTest {
 
     @Step("Проверить, что тело ответа содержит список заказов")
     private void checkOrdersList(Response response) {
-        Object orders = response.jsonPath().get("orders");
+        List<?> orders = response.jsonPath().getList("orders");
 
         assertNotNull(orders);
-        assertTrue(orders instanceof java.util.List);
+        assertTrue(orders instanceof List);
     }
 }

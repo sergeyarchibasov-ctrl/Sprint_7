@@ -1,107 +1,84 @@
+import api.CourierApi;
+import io.qameta.allure.Description;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
+import model.Courier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CourierCreateTest {
 
-    private static final String BASE_URL = "https://qa-scooter.praktikum-services.ru";
+    private final CourierApi courierApi = new CourierApi();
 
     private String login;
     private String password;
     private Integer courierId;
 
     @Test
+    @Description("Проверка успешного создания курьера")
     public void courierCanBeCreated() {
-        prepareCourierData();
+        Courier courier = createUniqueCourier();
 
-        Response response = createCourier(login, password);
+        Response response = courierApi.createCourier(courier);
 
         checkSuccessfulCreation(response);
 
-        courierId = loginCourier();
+        courierId = loginAndGetId(courier);
     }
 
     @Test
+    @Description("Проверка невозможности создания двух одинаковых курьеров")
     public void cannotCreateTwoIdenticalCouriers() {
-        prepareCourierData();
+        Courier courier = createUniqueCourier();
 
-        Response firstResponse = createCourier(login, password);
+        Response firstResponse = courierApi.createCourier(courier);
 
         checkSuccessfulCreation(firstResponse);
 
-        courierId = loginCourier();
+        courierId = loginAndGetId(courier);
 
-        Response secondResponse = createCourier(login, password);
+        Response secondResponse = courierApi.createCourier(courier);
 
         checkErrorResponse(secondResponse, 409);
     }
 
     @Test
+    @Description("Проверка невозможности создания курьера без обязательного поля login")
     public void cannotCreateCourierWithoutLogin() {
-        prepareCourierData();
+        Courier courier = new Courier(
+                null,
+                "password" + UUID.randomUUID()
+        );
 
-        Response response = createCourierWithoutLogin();
+        Response response = courierApi.createCourier(courier);
 
         checkErrorResponse(response, 400);
     }
 
     @Test
+    @Description("Проверка невозможности создания курьера без обязательного поля password")
     public void cannotCreateCourierWithoutPassword() {
-        prepareCourierData();
+        Courier courier = new Courier(
+                "courier" + UUID.randomUUID(),
+                null
+        );
 
-        Response response = createCourierWithoutPassword();
+        Response response = courierApi.createCourier(courier);
 
         checkErrorResponse(response, 400);
     }
 
-    @Step("Подготовить уникальные данные курьера")
-    private void prepareCourierData() {
+    @Step("Создать уникальные данные курьера")
+    private Courier createUniqueCourier() {
         login = "courier" + UUID.randomUUID();
         password = "password" + UUID.randomUUID();
-    }
 
-    @Step("Создать курьера")
-    private Response createCourier(String login, String password) {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\","
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier");
-    }
-
-    @Step("Создать курьера без логина")
-    private Response createCourierWithoutLogin() {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier");
-    }
-
-    @Step("Создать курьера без пароля")
-    private Response createCourierWithoutPassword() {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier");
+        return new Courier(login, password);
     }
 
     @Step("Проверить успешное создание курьера")
@@ -111,37 +88,27 @@ public class CourierCreateTest {
     }
 
     @Step("Проверить код ошибки")
-    private void checkErrorResponse(Response response, int expectedStatusCode) {
+    private void checkErrorResponse(
+            Response response,
+            int expectedStatusCode) {
+
         assertEquals(expectedStatusCode, response.statusCode());
     }
 
     @Step("Авторизоваться под созданным курьером и получить его id")
-    private Integer loginCourier() {
-        return given()
-                .baseUri(BASE_URL)
-                .header("Content-Type", "application/json")
-                .body("{"
-                        + "\"login\":\"" + login + "\","
-                        + "\"password\":\"" + password + "\""
-                        + "}")
-                .when()
-                .post("/api/v1/courier/login")
-                .then()
-                .statusCode(200)
-                .extract()
-                .path("id");
+    private Integer loginAndGetId(Courier courier) {
+        Response response = courierApi.loginCourier(courier);
+
+        assertEquals(200, response.statusCode());
+
+        return response.jsonPath().getInt("id");
     }
 
     @AfterEach
     @Step("Удалить созданного курьера")
     public void deleteCourier() {
         if (courierId != null) {
-            given()
-                    .baseUri(BASE_URL)
-                    .when()
-                    .delete("/api/v1/courier/" + courierId)
-                    .then()
-                    .statusCode(200);
+            courierApi.deleteCourier(courierId);
         }
     }
 }
